@@ -91,8 +91,8 @@ export const parseDeviceData = async () => {
 };
 
 // NOTE: 네트워크 정보 파싱
-export const parseNetworkData = () => {
-  const rawData = runCommand(NETWOK_INFO);
+export const parseNetworkData = async () => {
+  const rawData = await runCommand(NETWOK_INFO);
   // 기본값 정의
   const defaultConfig = {
     ping: false,

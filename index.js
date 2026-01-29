@@ -167,6 +167,8 @@ fastify.post(
     }
   },
 );
+
+// NOTE: 서버 시작
 const start = async () => {
   try {
     await fastify.listen({ port: 4000 });
@@ -176,15 +178,3 @@ const start = async () => {
   }
 };
 start();
-// async function main() {
-//   const system = await parseSystemData();
-//   const power = await parsePowerData();
-//   const device = await parseDeviceData();
-//   const network = await parseNetworkData();
-//   const status = { ...system, ...device };
-//   // console.log('status = ', status, 'power = ', power, 'network = ', network);
-//   postActivityLog('69797b51839fad67e620eff6', 'power', 1, power);
-//   postStatusLog('69797b51839fad67e620eff6', status, network);
-// }
-
-// main();
