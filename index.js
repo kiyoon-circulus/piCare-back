@@ -9,6 +9,8 @@ import {
   parsePowerData,
   parseSystemData,
 } from './src/utils/dataFilter.js';
+import cronPlugin from './src/plugins/cron.js';
+import { postHardwareLog } from './src/api/index.js';
 
 const fastify = Fastify({ logger: true });
 
@@ -29,8 +31,7 @@ await fastify.register(fastifySwagger, {
 await fastify.register(fastifySwaggerUi, {
   routePrefix: '/docs',
 });
-
-// NOTE: API
+// NOTE: API Route
 // NOTE: 학습 데이터 수집
 fastify.post(
   '/v1/feature_log',
@@ -57,10 +58,11 @@ fastify.post(
     try {
       const payload = request.body;
       // TODO: DB 서버로 보낼 파싱 및 보내기
-      console.log('[SUCCESS] feature MSG: ', payload);
+      fastify.log.info('[SUCCESS] feature MSG: ', payload);
+      await postHardwareLog('/v1/feature_log', payload);
       return { success: true };
     } catch (error) {
-      fastify.log.error('DB API 전송 실패 : ', error);
+      fastify.log.error('[FAILED] feature MSG: ', error);
       return reply.status(500).send({ success: false, error: 'Relay Failed' });
     }
   },
@@ -90,10 +92,10 @@ fastify.post(
   async (request, reply) => {
     try {
       const payload = request.body;
-      console.log('[SUCCESS] interaction MSG: ', payload);
+      await postHardwareLog('/v1/interaction_log', payload);
       return { success: true };
     } catch (error) {
-      fastify.log.error('DB API 전송 실패 : ', error);
+      fastify.log.error('[FAILED] interation MSG : ', error);
       return reply.status(500).send({ success: false, error: 'Relay Failed' });
     }
   },
@@ -154,12 +156,13 @@ fastify.post(
           throw new Error('No case');
         }
       }
+      await postHardwareLog(`/v1/${type}_log`, result);
       return {
         success: true,
         data: result,
       };
     } catch (error) {
-      fastify.log.error(error);
+      fastify.log.error(`[FAILED] cli_manager MSG: ${error}`);
 
       return reply.status(500).send({
         success: false,
@@ -168,7 +171,8 @@ fastify.post(
     }
   },
 );
-
+// Cron 등록
+await fastify.register(cronPlugin, '0 * * * *');
 // NOTE: 서버 시작
 const start = async () => {
   try {
