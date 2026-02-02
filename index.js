@@ -98,11 +98,12 @@ fastify.post(
     }
   },
 );
+// Status, Activity API 수집
 fastify.post(
   '/v1/cli_manager',
   {
     schema: {
-      description: '하드웨어 데이터 수집 API',
+      description: 'Activity, Status 관련 하드웨어 데이터 수집',
       tags: ['하드웨어 데이터 수집'],
       body: {
         type: 'object',
