@@ -172,7 +172,10 @@ fastify.post(
   },
 );
 // Cron 등록
-await fastify.register(cronPlugin, '0 * * * *');
+await fastify.register(cronPlugin, '0 * * * *'); // 매 정시 저장
+// 테스트용 인터벌
+// await fastify.register(cronPlugin, '*/1 * * * *');
+
 // NOTE: 서버 시작
 const start = async () => {
   try {

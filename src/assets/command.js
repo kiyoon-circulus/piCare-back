@@ -1,54 +1,7 @@
-// NOTE: 시스템 정보
-export const SYSTEM_INFO = `
-printf "%s|%s|%s|%s|%s|%s" \
-"$(cat /etc/timezone 2>/dev/null || readlink /etc/localtime | sed 's#.*/zoneinfo/##' || echo 'UTC')" \
-"$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || pmset -g batt 2>/dev/null | grep -oE '[0-9]+%' || echo '100%')" \
-"$(awk '{print $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null || sysctl -n machdep.cpu.temperature 2>/dev/null || echo '0')" \
-"$(if [ "$(uname)" = "Darwin" ]; then top -l 1 | awk '/CPU usage/ {print $3}' | tr -d '%'; else top -bn1 | grep "Cpu(s)" | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1}'; fi)" \
-"$(if [ "$(uname)" = "Darwin" ]; then vm_stat | awk '/Pages free/ {free=$3} /Pages active/ {active=$3} END {print (active+free)*4096 "-" free*4096}' | tr -d '.'; else free -b | awk '/Mem:/ {print $2 "-" $7}'; fi)" \
-"$(df -h / | awk 'NR==2 {print $3 "/" $2}')"
-`
-  .replace(/\n/g, ' ')
-  .replace(/\s+/g, ' ')
-  .trim();
+export const SYSTEM_INFO = `printf "%s|%s|%s|%s|%s|%s" "$(cat /etc/timezone 2>/dev/null || readlink /etc/localtime | sed 's#.*/zoneinfo/##' || echo 'UTC')" "$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || pmset -g batt 2>/dev/null | grep -oE '[0-9]+%' || echo '100%')" "$(awk '{print $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null || sysctl -n machdep.cpu.temperature 2>/dev/null || echo '0')" "$(if [ "$(uname)" = "Darwin" ]; then top -l 1 | awk '/CPU usage/ {print $3}' | tr -d '%'; else grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}'; fi)" "$(if [ "$(uname)" = "Darwin" ]; then vm_stat | awk '/Pages free/ {free=$3} /Pages active/ {active=$3} END {print (active+free)*4096 "-" free*4096}' | tr -d '.'; else awk '/MemTotal/ {t=$2} /MemAvailable/ {a=$2} /MemFree/ {f=$2} END {if(a) print t "-" a; else print t "-" f}' /proc/meminfo; fi)" "$(if [ "$(uname)" = "Darwin" ]; then df / | awk 'NR==2 {print $5}'; else df / | awk 'END{print $5}'; fi)"`;
 
-// NOTE: 전원동작
-export const POWER_INFO = `echo "$(if [ "$(uname)" = "Darwin" ]; then \
-  BOOT_TIME=$(sysctl -n kern.boottime | awk '{print $4}' | tr -d ','); \
-  date -r "$BOOT_TIME" +"%Y-%m-%dT%H:%M:%S%z"; \
-else \
-  date -d "@$(stat -c %Y /proc/1)" --iso-8601=seconds; \
-fi) | $(if [ "$(uname)" = "Darwin" ]; then \
-  last reboot -n 5 | grep "reboot" | awk '{print $4,$5,$6}' | while read l; do \
-    date -j -f "%b %d %H:%M" "$l" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null; \
-  done; \
-else \
-  last reboot -n 5 | grep "reboot" | awk '{for(i=1;i<=NF;i++) if($i~/[0-9]:[0-9]/) {print $(i-2),$(i-1),$i; break}}' | while read l; do \
-    date -d "$l" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null; \
-  done; \
-fi | tr '\n' ',' | sed 's/,$//')"`.trim();
+export const POWER_INFO = `echo "$(if [ "$(uname)" = "Darwin" ]; then BOOT_TIME=$(sysctl -n kern.boottime | awk '{print $4}' | tr -d ','); date -r "$BOOT_TIME" +"%Y-%m-%dT%H:%M:%S%z"; else date -d "@$(stat -c %Y /proc/1)" --iso-8601=seconds; fi) | $(if [ "$(uname)" = "Darwin" ]; then last reboot -n 5 | grep "reboot" | awk '{print $4,$5,$6}' | while read l; do date -j -f "%b %d %H:%M" "$l" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null; done; else last reboot -n 5 | grep "reboot" | awk '{for(i=1;i<=NF;i++) if($i~/[0-9]:[0-9]/) {print $(i-2),$(i-1),$i; break}}' | while read l; do date -d "$l" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null; done; fi | tr '\\n' ',' | sed 's/,$//')"`;
 
-// 외부장치 및 네트워크 연결 정보
-export const DEVICE_INFO = `printf "%s|%s|%s" \
-"$(if [ "$(uname)" = "Darwin" ]; then ioreg -p IOUSB -l -w 0 | grep -c "USB Product Name" || echo "0"; else lsusb 2>/dev/null | grep -iv 'hub' | wc -l || echo '0'; fi)" \
-"$(if [ "$(uname)" = "Darwin" ]; then echo "0"; else ls -1t /sys/bus/usb/devices/*/uevent 2>/dev/null | xargs -r grep -l 'PRODUCT' | xargs -r stat -c %Y 2>/dev/null | sort -n | head -n 1 | awk -v now=$(date +%s) '{print now-$1}' || echo '0'; fi)" \
-"$(if [ "$(uname)" = "Darwin" ]; then ifconfig | grep -B 3 "status: active" | grep "flags=" | cut -d: -f1 | head -n 1 | xargs -I {} sh -c "networksetup -getnetworkserviceorder {} 2>/dev/null || echo '0'" | grep -q "0" && echo "0" || echo "3600"; else find /sys/class/net/ -type l -not -name 'lo' -exec sh -c 'grep -q "up" "$1/operstate" && stat -c %Y "$1/operstate"' _ {} \; | sort -n | head -n 1 | awk -v now=$(date +%s) '{print now-$1}' || echo "0"; fi)"`.trim();
+export const DEVICE_INFO = `printf "%s|%s|%s" "$(if [ "$(uname)" = "Darwin" ]; then ioreg -p IOUSB -l -w 0 | grep -c "USB Product Name" || echo "0"; else lsusb 2>/dev/null | grep -iv 'hub' | wc -l || echo '0'; fi)" "$(if [ "$(uname)" = "Darwin" ]; then echo "0"; else ls -1t /sys/bus/usb/devices/*/uevent 2>/dev/null | xargs -r grep -l 'PRODUCT' | xargs -r stat -c %Y 2>/dev/null | sort -n | head -n 1 | awk -v now=$(date +%s) '{print now-$1}' || echo '0'; fi)" "$(if [ "$(uname)" = "Darwin" ]; then ifconfig | grep -B 3 "status: active" | grep "flags=" | cut -d: -f1 | head -n 1 | xargs -I {} sh -c "networksetup -getnetworkserviceorder {} 2>/dev/null || echo '0'" | grep -q "0" && echo "0" || echo "3600"; else find /sys/class/net/ -type l -not -name 'lo' -exec sh -c 'grep -q "up" "$1/operstate" && stat -c %Y "$1/operstate"' _ {} \\; | sort -n | head -n 1 | awk -v now=$(date +%s) '{print now-$1}' || echo "0"; fi)"`;
 
-// 네트워크 관련 정보
-export const NETWOK_INFO = `
-  echo "$(UNAME=$(uname); PING=$(ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1 \
-  && echo "Success" || echo "Fail"); EXT=$(curl -s --connect-timeout 2 https://ipinfo.io/json  \
-  | tr -d '\n' || echo '{"org":"N/A"}'); if [ "$UNAME" = "Darwin" ]; then IFACE=$(route -n get default 2>/dev/null \
-  | awk '/interface:/ {print $2}'); IP=$(ipconfig getifaddr $IFACE \
-  || echo "N/A"); W_RAW=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null); SSID=$(echo "$W_RAW" \
-  | awk -F': ' '/ SSID/ {print $2}' | xargs); [ -z "$SSID" ] && SSID=$(networksetup -getairportnetwork $IFACE | awk -F': ' '{print $2}' || echo "N/A"); \
-  FREQ=$(echo "$W_RAW" | awk -F': ' '/ channel/ {print $2}' | xargs || echo "N/A"); SIGNAL=$(echo "$W_RAW" \
-  | awk -F': ' '/ agrCtlRSSI/ {print $2}' | xargs || echo "0"); \
-  APC=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -s 2>/dev/null \
-  | wc -l | xargs); TRAFFIC=$(netstat -ibn | grep -e "$IFACE" | head -n 1 | awk '{print $7 "|" $10}'); \
-  else IFACE=$(ip route | grep default | awk '{print $5}'); IP=$(hostname -I | awk '{print $1}' || echo "N/A"); \
-  W_RAW=$(nmcli -t -f active,ssid,chan,signal dev wifi 2>/dev/null | grep '^yes' || echo ""); SSID=$(echo "$W_RAW" \
-  | cut -d: -f2 | xargs || echo "N/A"); FREQ=$(echo "$W_RAW" | cut -d: -f3 | xargs || echo "N/A"); SIGNAL=$(echo "$W_RAW" \
-  | cut -d: -f4 | xargs || echo "0"); APC=$(nmcli dev wifi list 2>/dev/null | wc -l | xargs); TRAFFIC=$(awk -v iface="$IFACE" '$1 ~ iface {print $2 "|" $10}' /proc/net/dev \
-  || echo "0|0"); fi; printf "%s|%s|%s|%s|%s|%s|%s|%s" "$PING" "$TRAFFIC" "$IP" "$EXT" "$SSID" "$FREQ" "$SIGNAL" "$APC")"
-`.trim();
+export const NETWOK_INFO = `UNAME=$(uname); PING=$(ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1 && echo "Success" || echo "Fail"); EXT=$(curl -s --connect-timeout 2 https://ipinfo.io/json | tr -d '\\n' || echo '{"org":"N/A"}'); if [ "$UNAME" = "Darwin" ]; then IFACE=$(route -n get default 2>/dev/null | awk '/interface:/ {print $2}'); IP=$(ipconfig getifaddr $IFACE || echo "N/A"); W_RAW=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null); SSID=$(echo "$W_RAW" | awk -F': ' '/ SSID/ {print $2}' | sed 's/|/-/g' | xargs); [ -z "$SSID" ] && SSID=$(networksetup -getairportnetwork $IFACE 2>/dev/null | awk -F': ' '{print $2}' | xargs || echo "N/A"); FREQ=$(echo "$W_RAW" | awk -F': ' '/ channel/ {print $2}' | xargs || echo "N/A"); SIGNAL=$(echo "$W_RAW" | awk -F': ' '/ agrCtlRSSI/ {print $2}' | xargs || echo "0"); APC=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -s 2>/dev/null | wc -l | xargs); TRAFFIC=$(netstat -ibn | grep -e "$IFACE" | head -n 1 | awk '{print $7 "|" $10}'); else IFACE=$(ip route | grep default | awk '{print $5}'); IP=$(hostname -I | awk '{print $1}' || echo "N/A"); W_RAW=$(nmcli -t -f active,ssid,chan,signal dev wifi 2>/dev/null | grep '^yes' | head -n 1 || echo ""); SSID=$(echo "$W_RAW" | cut -d: -f2 | sed 's/|/-/g' | xargs || echo "N/A"); FREQ=$(echo "$W_RAW" | cut -d: -f3 | xargs || echo "N/A"); SIGNAL=$(echo "$W_RAW" | cut -d: -f4 | xargs || echo "0"); APC=$(nmcli dev wifi list 2>/dev/null | wc -l | xargs); TRAFFIC=$(awk -v iface="$IFACE" '$1 ~ iface {print $2 "|" $10}' /proc/net/dev || echo "0|0"); fi; printf "%s|%s|%s|%s|%s|%s|%s|%s" "$PING" "$TRAFFIC" "$IP" "$EXT" "$SSID" "$FREQ" "$SIGNAL" "$APC"`;
