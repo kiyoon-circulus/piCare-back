@@ -11,6 +11,7 @@ import {
 } from './src/utils/dataFilter.js';
 import cronPlugin from './src/plugins/cron.js';
 import { postHardwareLog } from './src/api/index.js';
+import { execSync } from 'child_process';
 
 const fastify = Fastify({ logger: true });
 
@@ -204,8 +205,6 @@ fastify.post(
   async (request, reply) => {
     try {
       const { level } = request.body;
-      const { execSync } = require('child_process');
-
       // pactl 명령어로 볼륨 설정
       // @DEFAULT_SINK@는 현재 활성화된 기본 스피커를 의미합니다.
       execSync(`pactl set-sink-volume @DEFAULT_SINK@ ${level}%`);
