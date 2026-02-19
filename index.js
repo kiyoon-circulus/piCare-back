@@ -171,6 +171,62 @@ fastify.post(
     }
   },
 );
+
+fastify.post(
+  '/v1/system_volume',
+  {
+    schema: {
+      description: '시스템 볼륨 조절 API (pactl 사용)',
+      tags: ['시스템 제어'],
+      body: {
+        type: 'object',
+        required: ['level'],
+        properties: {
+          level: { type: 'number', minimum: 0, maximum: 100 },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                currentVolume: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  async (request, reply) => {
+    try {
+      const { level } = request.body;
+      const { execSync } = require('child_process');
+
+      // pactl 명령어로 볼륨 설정
+      // @DEFAULT_SINK@는 현재 활성화된 기본 스피커를 의미합니다.
+      execSync(`pactl set-sink-volume @DEFAULT_SINK@ ${level}%`);
+
+      fastify.log.info(`[SUCCESS] System Volume Set to: ${level}%`);
+
+      return {
+        success: true,
+        data: { currentVolume: level },
+      };
+    } catch (error) {
+      fastify.log.error(`[FAILED] system_volume MSG: ${error.message}`);
+
+      return reply.status(500).send({
+        success: false,
+        data: { message: '볼륨 조절에 실패했습니다.', error: error.message },
+      });
+    }
+  },
+);
+
 // Cron 등록
 await fastify.register(cronPlugin, '0 * * * *'); // 매 정시 저장
 // 테스트용 인터벌
