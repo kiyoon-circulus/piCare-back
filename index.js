@@ -82,7 +82,7 @@ fastify.post(
         properties: {
           hwId: { type: 'string' },
           type: { type: 'string' },
-          content: { type: 'string' },
+          content: { type: 'object' },
         },
       },
       response: {
