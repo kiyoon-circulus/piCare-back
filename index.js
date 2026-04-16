@@ -57,9 +57,8 @@ fastify.post(
       tags: ['학습 종류 수집'],
       body: {
         type: 'object',
-        required: ['featureId', 'hwId'],
+        required: ['featureId'],
         properties: {
-          hwId: { type: 'string' },
           featureId: { type: 'string' },
           command: { type: 'string' },
           duration: { type: 'number' },
@@ -72,9 +71,8 @@ fastify.post(
   },
   async (request, reply) => {
     try {
-      const payload = request.body;
-      // TODO: DB 서버로 보낼 파싱 및 보내기
-      log.ok(`feature_log hwId=${payload.hwId} featureId=${payload.featureId}`);
+      const payload = { ...request.body, hwId };
+      log.ok(`feature_log hwId=${hwId} featureId=${payload.featureId}`);
       await postHardwareLog('/v1/feature_log', payload);
       return { success: true };
     } catch (error) {
@@ -93,9 +91,8 @@ fastify.post(
       tags: ['상호작용 데이터 수집'],
       body: {
         type: 'object',
-        required: ['type', 'hwId'],
+        required: ['type'],
         properties: {
-          hwId: { type: 'string' },
           type: { type: 'string' },
           content: { type: 'object' },
         },
@@ -107,7 +104,7 @@ fastify.post(
   },
   async (request, reply) => {
     try {
-      const payload = request.body;
+      const payload = { ...request.body, hwId };
       await postHardwareLog('/v1/interaction_log', payload);
       return { success: true };
     } catch (error) {
