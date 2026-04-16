@@ -36,13 +36,13 @@ export const fetchHwId = async () => {
  */
 export const postHardwareLog = async (endpoint, params) => {
   try {
-    log.info(`RELAY → ${endpoint}`);
+    log.info(`RELAY → ${endpoint} ${JSON.stringify(params)}`);
     const response = await api.post(endpoint, params);
     log.ok(`RELAY ← ${endpoint} ${response.status}`);
     return response.data;
   } catch (error) {
     const errorMsg = error.response?.data?.message || error.message;
-    const status = error.response?.status ?? '---';
+    const status = error.response?.status ?? "---";
     log.error(`RELAY FAILED ${status} ${endpoint}: ${errorMsg}`);
     throw new Error(errorMsg);
   }
